@@ -1,0 +1,12 @@
+export const SUI_LISTENER_SQS_QUEUE_NAME = `test-suiListener.fifo`;
+export const SUI_LISTENER_SNS_TOPIC_NAME = `test-suiListener`;
+export const BLUEFIN_PACKAGE_ADDRESS = '0xbf8ccc28a4ef26e8f5f5ea384096c52a38552a9cd84306294631ece2348bb2cf';
+export const BLUEFIN_EXCHANGE_MODULE = 'exchange';
+export const BLUEFIN_TRADE_FUNCTION = 'trade';
+export const AWS_ACCOUNT_ID = '966847549611';
+export const SQS_ENDPOINT = 'sqs.ap-south-1.amazonaws.com';
+export const REGION = 'ap-south-1';
+export const suiModules = [BLUEFIN_EXCHANGE_MODULE];
+export const suiFunctions = [BLUEFIN_TRADE_FUNCTION];
+export const SUI_RPC_ENDPOINT = 'https://sui-mainnet-rpc.nodereal.io';
+//# sourceMappingURL=constants.js.map

@@ -1,0 +1,132 @@
+service: sui-integration-examples
+
+custom:
+  stage: ${opt:stage, 'offline'}
+  region: ${file(./stages/${self:custom.stage}.yml):region}
+  serverless-offline:
+    httpPort: 5000
+    noPrependStageInUrl: true
+    ignoreJWTSignature: true
+  serverless-offline-sqs:
+    autoCreate: true
+    endpoint: http://0.0.0.0:9324
+    region: ${self:custom.region}
+    accessKeyId: root
+    secretAccessKey: root
+  elasticmq:
+    stages:
+      - dev
+    start:
+      port: 9324
+      noStart: false
+
+provider:
+  name: aws
+  region: ${self:custom.region}
+  runtime: nodejs18.x
+  environment: ${file(./stages/${self:custom.stage}.yml):environment}
+  memorySize: 512
+  timeout: 10
+  logRetentionInDays: 30
+  logs:
+    httpApi: true
+  httpApi:
+    cors:
+      allowedOrigins:
+        - ${self:provider.environment.ALLOWED_ORIGIN}
+      allowedMethods:
+        - POST
+        - OPTIONS
+      allowedHeaders:
+        - '*'
+  ecr:
+    images:
+      sui-integration-examples-nodejs:
+        path: ./
+        file: Dockerfile
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - secretsmanager:GetSecretValue
+            - sqs:SendMessage
+          Resource: '*'
+
+  vpc:
+    securityGroupIds:
+      - ${self:provider.environment.SECURITY_GROUP_ID}
+    subnetIds:
+      - ${self:provider.environment.SUBNET_ID_1}
+      - ${self:provider.environment.SUBNET_ID_2}
+
+fargate:
+  vpc:
+    securityGroupIds:
+      - ${self:provider.environment.SECURITY_GROUP_ID}
+    subnetIds:
+      - ${self:provider.environment.SUBNET_ID_1}
+      - ${self:provider.environment.SUBNET_ID_2}
+    assignPublicIp: true
+  tasks:
+    sui-events-listener:
+      name: ${self:custom.stage}-sui-events-listener
+      image: sui-integration-examples-nodejs
+      command:
+        - './dist/sui-events-listener.mjs'
+      environment:
+        ENV: ${self:provider.environment.ENV}
+        REGION: ${self:provider.environment.REGION}
+        SQS_ENDPOINT: ${self:provider.environment.SQS_ENDPOINT}
+        AWS_ACCOUNT_ID: ${self:provider.environment.AWS_ACCOUNT_ID}
+        SUI_PACKAGE_ADDRESS: ${self:provider.environment.SUI_PACKAGE_ADDRESS}
+        SUI_RPC_ENDPOINT: ${self:provider.environment.SUI_RPC_ENDPOINT}
+
+functions:
+  sui-sign-sponsored-transaction:
+    handler: src/handlers/http/sui-sign-sponsored-transaction.handler
+    events:
+      - httpApi:
+          path: '/blockchain/sui-sign-sponsored-transaction'
+          method: 'POST'
+
+  # NOTE: Uncomment if need to run listener in local. Fargate task will not run with serverless offline.
+  # sui-events-listener:
+  #   handler: src/handlers/schedule/sui-events-listener.handler
+  #   events:
+  #   - schedule:
+  #       name: ${self:custom.stage}-events-listener
+  #       rate: rate(1 minute)
+
+  process-sui-event:
+    handler: src/handlers/sqs/process-sui-event.handler
+    timeout: 50
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - suiListenerQueue
+              - Arn
+
+resources:
+  Resources:
+    suiListenerQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:custom.stage}-suiListener.fifo
+        VisibilityTimeout: 50
+        FifoQueue: true
+        ContentBasedDeduplication: true
+        DeduplicationScope: messageGroup
+        FifoThroughputLimit: perMessageGroupId
+
+package:
+  individually: true
+
+plugins:
+  - serverless-bundle
+  - serverless-offline
+  - serverless-offline-sqs
+  - serverless-offline-sns
+  - serverless-offline-elasticmq
+  - serverless-fargate
