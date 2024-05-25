@@ -11,14 +11,8 @@ export const parseCetusSwapEvent = async (event: CetusSwapEventType) => {
     }
 
     const { pool, atob, fee_amount } = parsedJson;
-    const {
-      content,
-      tokenAMetadata,
-      tokenBMetadata,
-      poolType,
-      tokenAType,
-      tokenBType,
-    } = await getPoolTokensMetadata(pool);
+    const { content, poolType, tokenAType, tokenBType } =
+      await getPoolTokensMetadata(pool);
 
     const amountIn = parsedJson.amount_in;
     const amountOut = parsedJson.amount_out;
@@ -33,18 +27,17 @@ export const parseCetusSwapEvent = async (event: CetusSwapEventType) => {
       poolType,
       tokenAType,
       tokenBType,
-      tokenAMetadata,
-      tokenBMetadata,
       amountIn,
       amountOut,
       tokenAAmountInPool,
       tokenBAmountInPool,
       totalLiquidityInPool,
       platform: "cetus",
-      timestampMs,
+      timestampMs: parseInt(timestampMs),
       atob,
       fees: fee_amount,
       txnDigest: id.txDigest,
+      eventSeq: id.eventSeq,
       event: "swap",
     };
   } catch (err) {

@@ -1,15 +1,25 @@
+import { type SuiObjectResponse } from "@mysten/sui.js/client";
 import { PoolContentType } from "../types/poolContentType.js";
+import cache from "./cache.js";
 import { getPoolAssetsFromType } from "./getPoolAssetsFromType.js";
 import client from "./sui.js";
 
 const getPoolTokensMetadata = async (poolId: string) => {
   try {
-    const poolObject = await client.getObject({
-      id: poolId,
-      options: {
-        showContent: true,
-      },
-    });
+    let poolObject: SuiObjectResponse;
+
+    if (cache.get(poolId)) {
+      poolObject = cache.get(poolId);
+    } else {
+      poolObject = await client.getObject({
+        id: poolId,
+        options: {
+          showContent: true,
+        },
+      });
+
+      cache.set(poolId, poolObject);
+    }
 
     const poolObjectData = poolObject.data;
     const content: PoolContentType = poolObjectData.content as any;
@@ -20,16 +30,7 @@ const getPoolTokensMetadata = async (poolId: string) => {
     const tokenAType = poolAssets.split(",")[0];
     const tokenBType = poolAssets.split(",")[1];
 
-    const tokenAMetadata = await client.getCoinMetadata({
-      coinType: tokenAType,
-    });
-    const tokenBMetadata = await client.getCoinMetadata({
-      coinType: tokenBType,
-    });
-
     return {
-      tokenAMetadata,
-      tokenBMetadata,
       content,
       poolType,
       tokenAType,

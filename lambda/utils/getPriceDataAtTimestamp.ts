@@ -1,9 +1,11 @@
 import axios from "axios";
+import BigNumber from "bignumber.js";
 import PythPriceFeeds from "../constants/pythPriceFeedIds";
 
 const getPriceDataAtTimestamp = async (
   timestamp: number,
-  tokenSymbol: string
+  tokenSymbol: string,
+  isRetry?: boolean
 ) => {
   try {
     const pythPriceFeedIdForToken = PythPriceFeeds.find(
@@ -19,12 +21,19 @@ const getPriceDataAtTimestamp = async (
     );
 
     if (priceDataResponse.status !== 200) {
-      return null;
+      return "0";
     }
 
-    return priceDataResponse.data.parsed[0].price.price as string;
+    const price = priceDataResponse.data.parsed[0]?.price?.price as string;
+
+    return BigNumber(price)
+      .dividedBy(BigNumber(10 ** 8))
+      .toString();
   } catch (err) {
-    return null;
+    if (!isRetry) {
+      return getPriceDataAtTimestamp(1696155454, tokenSymbol, true);
+    }
+    return "0";
   }
 };
 

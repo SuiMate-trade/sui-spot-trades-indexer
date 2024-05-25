@@ -1,11 +1,24 @@
 // src/core/constants.ts
 var SUI_LISTENER_SQS_QUEUE_NAME = `sui-spot-trades-queue.fifo`;
 var CETUS_PACKAGE_ADDRESS = "0x1eabed72c53feb3805120a081dc15963c204dc8d091542592abaf7a35689b2fb";
+var TURBOS_PACKAGE_ADDRESS = "0x91bfbc386a41afcfd9b2533058d7e915a1d3829089cc268ff4333d54d6339ca1";
+var KRIYA_SWAP_PACKAGE_ADDRESS = "0xa0eba10b173538c8fecca1dff298e488402cc9ff374f8a12ca7758eebe830b66";
 var CETUS_POOL_MODULE = "pool";
+var KRIYA_SPOT_MODULE = "spot_dex";
+var TURBOS_POOL_MODULE = "pool";
 var AWS_ACCOUNT_ID = "966847549611";
 var SQS_ENDPOINT = "sqs.ap-south-1.amazonaws.com";
 var REGION = "ap-south-1";
-var suiModules = [CETUS_POOL_MODULE];
+var suiModules = [
+  CETUS_POOL_MODULE,
+  KRIYA_SPOT_MODULE,
+  TURBOS_POOL_MODULE
+];
+var suiPackages = [
+  CETUS_PACKAGE_ADDRESS,
+  KRIYA_SWAP_PACKAGE_ADDRESS,
+  TURBOS_PACKAGE_ADDRESS
+];
 var SUI_RPC_ENDPOINT = "https://sui-mainnet-rpc.nodereal.io";
 
 // src/core/utils/firebase.ts
@@ -127,8 +140,10 @@ async function readSuiEvents() {
   log("Reading cursors from db.");
   const moduleConfigPromises = [];
   suiModules.forEach(
-    (module) => moduleConfigPromises.push(
-      BaseRtdbRepository_default.get(`spot-trade-modules/${module}`)
+    (module, index) => moduleConfigPromises.push(
+      BaseRtdbRepository_default.get(
+        `spot-trade-modules/${suiPackages[index]}/${module}`
+      )
     )
   );
   const moduleConfigs = await Promise.all(moduleConfigPromises);
@@ -140,12 +155,7 @@ async function readSuiEvents() {
       `Requesting ${TRANSACTIONS_MAX_NUMBER} events for module ${module} with cursor ${cursor}`
     );
     eventsPromises.push(
-      queryEvents(
-        CETUS_PACKAGE_ADDRESS,
-        module,
-        cursor,
-        TRANSACTIONS_MAX_NUMBER
-      )
+      queryEvents(suiPackages[index], module, cursor, TRANSACTIONS_MAX_NUMBER)
     );
   });
   const events = await Promise.all(eventsPromises);
@@ -160,7 +170,7 @@ async function readSuiEvents() {
   const nextCursors = events.map((item) => item.nextCursor);
   log("Updating cursors.");
   nextCursors.forEach((newNextCursor, index) => {
-    const cursorKey = `${suiModules[index]}`;
+    const cursorKey = `${suiPackages[index]}/${suiModules[index]}`;
     if (cursorKey === void 0) {
       throw new RuntimeError(`Module by index ${index} is not configured`);
     }

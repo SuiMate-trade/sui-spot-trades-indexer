@@ -4,9 +4,7 @@ import {
   CetusOpenPositionEventType,
   CetusCollectLiquidityFeeEventType,
 } from "../types/cetusLiquidityEventType.js";
-import { CetusPoolContentType } from "../types/poolContentType.js";
-import { getPoolAssetsFromType } from "../utils/getPoolAssetsFromType.js";
-import client from "../utils/sui.js";
+import getPoolTokensMetadata from "../utils/getPoolTokensMetadata.js";
 
 export const parseOpenPositionInCetusPoolEvent = async (
   event: CetusOpenPositionEventType
@@ -19,28 +17,8 @@ export const parseOpenPositionInCetusPoolEvent = async (
     }
 
     const { pool, position } = parsedJson;
-    const poolObject = await client.getObject({
-      id: pool,
-      options: {
-        showContent: true,
-      },
-    });
-
-    const poolObjectData = poolObject.data;
-    const content: CetusPoolContentType = poolObjectData.content as any;
-
-    const poolType = content.type;
-    const poolAssets = getPoolAssetsFromType(poolType);
-
-    const tokenAType = poolAssets.split(",")[0];
-    const tokenBType = poolAssets.split(",")[1];
-
-    const tokenAMetadata = await client.getCoinMetadata({
-      coinType: tokenAType,
-    });
-    const tokenBMetadata = await client.getCoinMetadata({
-      coinType: tokenBType,
-    });
+    const { poolType, tokenAType, tokenBType } =
+      await getPoolTokensMetadata(pool);
 
     return {
       sender,
@@ -49,10 +27,8 @@ export const parseOpenPositionInCetusPoolEvent = async (
       position,
       tokenAType,
       tokenBType,
-      tokenAMetadata,
-      tokenBMetadata,
       platform: "cetus",
-      timestampMs,
+      timestampMs: parseInt(timestampMs),
       txnDigest: id.txDigest,
       event: "openLiquidityPosition",
     };
@@ -69,35 +45,15 @@ export const parseAddOrRemoveLiquidityToCetusPoolEvent = async (
     const { parsedJson, sender, type, id, timestampMs } = event;
 
     if (
-      type !== `${CETUS_PACKAGE_ADDRESS}::pool::AddLiquidityEvent` ||
+      type !== `${CETUS_PACKAGE_ADDRESS}::pool::AddLiquidityEvent` &&
       type !== `${CETUS_PACKAGE_ADDRESS}::pool::RemoveLiquidityEvent`
     ) {
       throw new Error(`Invalid event type: ${type}`);
     }
 
     const { pool, position } = parsedJson;
-    const poolObject = await client.getObject({
-      id: pool,
-      options: {
-        showContent: true,
-      },
-    });
-
-    const poolObjectData = poolObject.data;
-    const content: CetusPoolContentType = poolObjectData.content as any;
-
-    const poolType = content.type;
-    const poolAssets = getPoolAssetsFromType(poolType);
-
-    const tokenAType = poolAssets.split(",")[0];
-    const tokenBType = poolAssets.split(",")[1];
-
-    const tokenAMetadata = await client.getCoinMetadata({
-      coinType: tokenAType,
-    });
-    const tokenBMetadata = await client.getCoinMetadata({
-      coinType: tokenBType,
-    });
+    const { poolType, tokenAType, tokenBType } =
+      await getPoolTokensMetadata(pool);
 
     const tokenAAmount = parsedJson.amount_a;
     const tokenBAmount = parsedJson.amount_b;
@@ -111,15 +67,14 @@ export const parseAddOrRemoveLiquidityToCetusPoolEvent = async (
       position,
       tokenAType,
       tokenBType,
-      tokenAMetadata,
-      tokenBMetadata,
       tokenAAmount,
       tokenBAmount,
       liquidityAmount,
       afterLiquidity,
       platform: "cetus",
-      timestampMs,
+      timestampMs: parseInt(timestampMs),
       txnDigest: id.txDigest,
+      eventSeq: id.eventSeq,
       event:
         type === `${CETUS_PACKAGE_ADDRESS}::pool::AddLiquidityEvent`
           ? "addLiquidity"
@@ -142,28 +97,9 @@ export const parseCollectLiquidityFeeInCetusPoolEvent = async (
     }
 
     const { pool, position } = parsedJson;
-    const poolObject = await client.getObject({
-      id: pool,
-      options: {
-        showContent: true,
-      },
-    });
 
-    const poolObjectData = poolObject.data;
-    const content: CetusPoolContentType = poolObjectData.content as any;
-
-    const poolType = content.type;
-    const poolAssets = getPoolAssetsFromType(poolType);
-
-    const tokenAType = poolAssets.split(",")[0];
-    const tokenBType = poolAssets.split(",")[1];
-
-    const tokenAMetadata = await client.getCoinMetadata({
-      coinType: tokenAType,
-    });
-    const tokenBMetadata = await client.getCoinMetadata({
-      coinType: tokenBType,
-    });
+    const { poolType, tokenAType, tokenBType } =
+      await getPoolTokensMetadata(pool);
 
     const tokenAAmount = parsedJson.amount_a;
     const tokenBAmount = parsedJson.amount_b;
@@ -175,13 +111,12 @@ export const parseCollectLiquidityFeeInCetusPoolEvent = async (
       position,
       tokenAType,
       tokenBType,
-      tokenAMetadata,
-      tokenBMetadata,
       tokenAAmount,
       tokenBAmount,
       platform: "cetus",
-      timestampMs,
+      timestampMs: parseInt(timestampMs),
       txnDigest: id.txDigest,
+      eventSeq: id.eventSeq,
       event: "collectLiquidityFee",
     };
   } catch (err) {
